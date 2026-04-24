@@ -9,10 +9,15 @@
       "client_info": {
         "mobilesdk_app_id": "1:113481042376:android:ad2f003e9ff1ec061198fd",
         "android_client_info": {
-          "package_name": "com.chatme"
+          "package_name": "com.rayven.chatme"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "113481042376-4i07purf3j1ug3baublrac8bm881ine8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDm4OB2ppshCtLJTsWDLdGy2bEJ2W13RHY"
@@ -20,7 +25,49 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "113481042376-4i07purf3j1ug3baublrac8bm881ine8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:113481042376:android:a656684d57a226561198fd",
+        "android_client_info": {
+          "package_name": "com.rayven.chatme"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "113481042376-j3qo2764egl2fvqrqo0nckiid1a3nnio.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rayven.chatme",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "113481042376-4i07purf3j1ug3baublrac8bm881ine8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDm4OB2ppshCtLJTsWDLdGy2bEJ2W13RHY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "113481042376-4i07purf3j1ug3baublrac8bm881ine8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

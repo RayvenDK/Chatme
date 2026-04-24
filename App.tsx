@@ -1,81 +1,56 @@
 import React, {useEffect, useState} from 'react';
-import {SafeAreaView, Text, TextInput, Button, View, Alert} from 'react-native';
+import {SafeAreaView, Text, Button, View} from 'react-native';
 import auth, {FirebaseAuthTypes} from '@react-native-firebase/auth';
+import {GoogleSignin} from '@react-native-google-signin/google-signin';
+import {signInWithFacebook} from './src/auth/facebook';
+
+GoogleSignin.configure({
+  webClientId: '113481042376-4i07purf3j1ug3baublrac8bm881ine8.apps.googleusercontent.com',
+  offlineAccess: true,
+  forceCodeForRefreshToken: true,
+});
 
 export default function App() {
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('Password123!');
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
 
-  useEffect(() => {
-    const unsub = auth().onAuthStateChanged(u => setUser(u));
-    return unsub;
-  }, []);
+  useEffect(() => auth().onAuthStateChanged(setUser), []);
 
-  const signUp = async () => {
-    try {
-      await auth().createUserWithEmailAndPassword(email.trim(), password);
-      Alert.alert('OK', 'User created');
-    } catch (e: any) {
-      Alert.alert('Sign up error', e?.message ?? String(e));
-    }
+  const signInWithGoogle = async () => {
+    await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog: true});
+    await GoogleSignin.signIn();
+
+    const tokens = await GoogleSignin.getTokens();
+    const idToken = tokens.idToken;
+    if (!idToken) throw new Error('No idToken returned from Google Sign-In');
+
+    const credential = auth.GoogleAuthProvider.credential(idToken);
+    await auth().signInWithCredential(credential);
   };
 
-  const signIn = async () => {
-    try {
-      await auth().signInWithEmailAndPassword(email.trim(), password);
-      Alert.alert('OK', 'Signed in');
-    } catch (e: any) {
-      Alert.alert('Sign in error', e?.message ?? String(e));
-    }
+  const signInWithFacebookPress = async () => {
+    const res = await signInWithFacebook();
+    if (res.cancelled) return;
   };
 
   const signOut = async () => {
+    await auth().signOut();
     try {
-      await auth().signOut();
-      Alert.alert('OK', 'Signed out');
-    } catch (e: any) {
-      Alert.alert('Sign out error', e?.message ?? String(e));
-    }
+      await GoogleSignin.signOut();
+    } catch {}
+    // (valgfrit) LoginManager.logOut(); kan tilføjes senere
   };
 
   return (
     <SafeAreaView style={{flex: 1, padding: 16}}>
-      <Text style={{fontSize: 20, fontWeight: '600'}}>Firebase Auth Test</Text>
-
-      <View style={{height: 12}} />
-
-      <Text>Current user:</Text>
-      <Text selectable style={{marginBottom: 12}}>
-        {user ? `${user.uid} (${user.email ?? 'no email'})` : 'Signed out'}
+      <Text style={{fontSize: 18, marginBottom: 12}}>
+        {user ? `Logget ind: ${user.email ?? user.uid}` : 'Ikke logget ind'}
       </Text>
 
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="email"
-        style={{borderWidth: 1, padding: 10, marginBottom: 10}}
-      />
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholder="password"
-        style={{borderWidth: 1, padding: 10, marginBottom: 10}}
-      />
-
-      <View style={{gap: 8}}>
-        <Button title="Sign up" onPress={signUp} />
-        <Button title="Sign in" onPress={signIn} />
+      <View style={{gap: 10}}>
+        <Button title="Sign in with Google" onPress={signInWithGoogle} />
+        <Button title="Sign in with Facebook" onPress={signInWithFacebookPress} />
         <Button title="Sign out" onPress={signOut} />
       </View>
-
-      <View style={{height: 12}} />
-      <Text style={{opacity: 0.7}}>
-        Tip: skift email til noget unikt når du tester Sign up.
-      </Text>
     </SafeAreaView>
   );
 }

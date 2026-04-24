@@ -1,4 +1,4 @@
-package com.chatme
+package com.rayven.chatme
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

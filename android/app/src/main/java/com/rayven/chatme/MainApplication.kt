@@ -1,4 +1,4 @@
-package com.chatme
+package com.rayven.chatme
 
 import android.app.Application
 import com.facebook.react.PackageList
