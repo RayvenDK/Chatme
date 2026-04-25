@@ -1,97 +1,109 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Chatme (React Native CLI + TypeScript + Firebase)
 
-# Getting Started
+Chatme er en lille chat-app lavet i **React Native CLI** med **TypeScript** og **Firebase Authentication**.  
+Projektet er lavet som en praktik-/læringsopgave med fokus på projektstruktur, læsbar kode og stabil login-flow.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Funktioner (status)
 
-## Step 1: Start Metro
+- [x] Login screen (Google Sign-In)
+- [x] Login screen (Facebook Login) _(kræver Meta setup)_
+- [x] Home screen + Sign out
+- [ ] Chat rooms _(skeleton / næste step)_
+- [ ] Open chat room
+- [ ] Send/receive messages
+- [ ] Push notifications _(bonus)_
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Tech stack
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- React Native CLI
+- TypeScript
+- Firebase Auth: `@react-native-firebase/auth`
+- Google Sign-In: `@react-native-google-signin/google-signin`
+- Facebook Login: `react-native-fbsdk-next`
+- Navigation: `@react-navigation/native` + `@react-navigation/native-stack`
 
-```sh
-# Using npm
-npm start
+## Projektstruktur
 
-# OR using Yarn
-yarn start
+- `src/auth/`  
+  Login-logik pr. provider (Google/Facebook). UI kalder bare `signInWithGoogle()` / `signInWithFacebook()`.
+- `src/navigation/`  
+  Navigation / stack.
+- `src/screens/`  
+  Skærme (Login, Home, osv.)
+
+## Kom i gang
+
+### 1) Installér dependencies
+
+```bash
+npm install
 ```
 
-## Step 2: Build and run your app
+### 2) Kør Android
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```bash
+npx react-native run-android
 ```
 
-### iOS
+## Firebase setup (Android)
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+1. Opret et Firebase-projekt.
+2. Tilføj en Android-app i Firebase med jeres package name (skal matche `android/app/build.gradle`).
+3. Download `google-services.json` og placer den her:
+   - `android/app/google-services.json`
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### SHA-1 (debug) – vigtigt for Google login
 
-```sh
-bundle install
+Hvis du får `DEVELOPER_ERROR`, mangler der næsten altid SHA-1 eller korrekt `webClientId`.
+
+1. Find SHA-1:
+
+```bash
+cd android
+./gradlew signingReport
 ```
 
-Then, and every time you update your native dependencies, run:
+2. Kopiér **SHA1** fra `variant: debug` ind i Firebase Console:
 
-```sh
-bundle exec pod install
-```
+- Project settings → Your apps → Android app → Add fingerprint (SHA-1)
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+3. Download `google-services.json` igen og erstat filen i `android/app/`.
 
-```sh
-# Using npm
-npm run ios
+## Google Sign-In
 
-# OR using Yarn
-yarn ios
-```
+- `webClientId` er sat i `src/auth/google.ts`.
+- Login-flow:
+  1. `GoogleSignin.signIn()` → `idToken`
+  2. `auth().signInWithCredential(...)`
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+**Typiske fejl**
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+- `DEVELOPER_ERROR`: forkert/manglende `webClientId`, manglende SHA-1 i Firebase, forkert package name, eller gammel `google-services.json`.
 
-## Step 3: Modify your app
+## Facebook Login (Meta)
 
-Now that you have successfully run the app, let's make changes!
+Facebook kan blokere login, indtil app-oplysninger er udfyldt (privacy policy + data deletion).
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+Vi hoster de nødvendige sider via GitHub Pages:
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+- Privacy Policy: `https://rayvendk.github.io/chatme-legal/privacy.html`
+- Data Deletion: `https://rayvendk.github.io/chatme-legal/deletion.html`
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+**Meta checklist (minimum)**
 
-## Congratulations! :tada:
+- Udfyld “Settings → Basic” (privacy policy URL, data deletion URL, category, kontakt-email)
+- Tilføj Android package name + key hash i Meta
+- Sørg for at test-bruger er tilføjet under Roles (Development mode)
 
-You've successfully run and modified your React Native App. :partying_face:
+## Kodekvalitet / vurderingspunkter
 
-### Now what?
+- **Separation of concerns:** auth-logik ligger i `src/auth`, UI ligger i `src/screens`.
+- **Error handling:** login-skærmen viser fejl via `Alert` og har loading state.
+- **Native look & feel:** der bruges standard RN-komponenter og native-stack navigation.
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## Roadmap (næste step)
 
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+1. Chat rooms screen (liste over rooms)
+2. Chat room screen (åbne rum + beskeder)
+3. Firestore realtime messages
+4. Push notifications (FCM) _(bonus)_
