@@ -1,5 +1,5 @@
 import React from 'react';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {createStackNavigator} from '@react-navigation/stack';
 import {Pressable, Text} from 'react-native';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -14,11 +14,14 @@ export type RootStackParamList = {
   Settings: undefined;
 };
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
-export default function AppNavigator({signedIn}: {signedIn: boolean}) {
+export default function AppNavigator1({signedIn}: {signedIn: boolean}) {
   return (
-    <Stack.Navigator screenOptions={{keyboardHandlingEnabled: false}}>
+    <Stack.Navigator
+      screenOptions={{
+        headerTintColor: '#111', // <-- gør back-pilen synlig
+      }}>
       {signedIn ? (
         <>
           <Stack.Screen
@@ -29,20 +32,30 @@ export default function AppNavigator({signedIn}: {signedIn: boolean}) {
               headerRight: () => (
                 <Pressable
                   onPress={() => navigation.navigate('Settings')}
-                  hitSlop={10}
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
                   style={{paddingHorizontal: 8, paddingVertical: 4}}>
                   <Text style={{fontSize: 18}}>⚙</Text>
                 </Pressable>
               ),
             })}
           />
-         <Stack.Screen
-           name="ChatRoom"
-            component={ChatRoomScreen}
-            options={({route}) => ({
-            title: route.params.title ?? 'Chat room',
-            unmountOnBlur: true,})}
+
+          <Stack.Screen
+  name="ChatRoom"
+  component={ChatRoomScreen}
+  options={({route, navigation}) => ({
+    title: route.params.title ?? 'Chat room',
+    headerLeft: () => (
+      <Pressable
+        onPress={() => navigation.goBack()}
+        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+        style={{paddingHorizontal: 12, paddingVertical: 6}}>
+        <Text style={{fontSize: 22, color: '#111'}}>{"‹"}</Text>
+      </Pressable>
+    ),
+  })}
 />
+
           <Stack.Screen name="Settings" component={SettingsScreen} options={{title: 'Settings'}} />
         </>
       ) : (
