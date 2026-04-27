@@ -8,8 +8,8 @@ Projektet er lavet som en praktik-/læringsopgave med fokus på projektstruktur,
 - [x] Login screen (Google Sign-In)
 - [x] Login screen (Facebook Login) _(kræver Meta setup)_
 - [x] Home screen + Sign out
-- [ ] Chat rooms _(skeleton / næste step)_
-- [ ] Open chat room
+- [x] Chat rooms 
+- [x] Open chat room
 - [ ] Send/receive messages
 - [ ] Push notifications _(bonus)_
 
