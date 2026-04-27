@@ -4,12 +4,16 @@ import {NavigationContainer} from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import {enableScreens} from 'react-native-screens';
 import AppNavigator1 from './src/navigation/AppNavigator1';
+import {getAuth, onAuthStateChanged} from '@react-native-firebase/auth';
 enableScreens(false);
 
 export default function App() {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
 
-  useEffect(() => auth().onAuthStateChanged(setUser), []);
+  useEffect(() => {
+  const a = getAuth();
+  return onAuthStateChanged(a, setUser);
+}, []);
 
   return (
     <NavigationContainer>

@@ -1,4 +1,14 @@
-import firestore from '@react-native-firebase/firestore';
+import {getFirestore} from '@react-native-firebase/firestore';
+import type {FirebaseFirestoreTypes} from '@react-native-firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+} from '@react-native-firebase/firestore';
 
 export type Room = {
   id: string;
@@ -8,30 +18,43 @@ export type Room = {
   lastMessageText?: string;
 };
 
-const roomsRef = () => firestore().collection('rooms');
+const db = getFirestore();
+
+const roomsCol = () => collection(db, 'rooms');
 
 export function listenToRooms(
   onChange: (rooms: Room[]) => void,
   onError?: (err: unknown) => void
 ) {
-  return roomsRef()
-    .orderBy('lastMessageAt', 'desc')
-    .onSnapshot(
-      snap => {
-        const rooms = snap.docs.map(d => ({id: d.id, ...(d.data() as any)}));
-        onChange(rooms as Room[]);
-      },
-      err => onError?.(err)
-    );
+  const q = query(roomsCol(), orderBy('lastMessageAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    snap => {
+      const rooms = snap.docs.map(d => ({id: d.id, ...(d.data() as any)}));
+      onChange(rooms as Room[]);
+    },
+    err => onError?.(err)
+  );
 }
 
 export async function refreshRooms() {
-  const snap = await roomsRef().orderBy('lastMessageAt', 'desc').get();
+  const q = query(roomsCol(), orderBy('lastMessageAt', 'desc'));
+  const snap = await getDocs(q);
   return snap.docs.map(d => ({id: d.id, ...(d.data() as any)})) as Room[];
 }
 
 export function listenToRoom(roomId: string, onChange: (room: any) => void) {
-  return roomsRef()
-    .doc(roomId)
-    .onSnapshot(doc => onChange({id: doc.id, ...doc.data()}));
+  const ref = doc(db, 'rooms', roomId);
+
+  return onSnapshot(ref, snap => {
+    onChange({id: snap.id, ...snap.data()});
+  });
+}
+
+// (valgfrit) hvis du får brug for én-gangs fetch af room:
+export async function getRoom(roomId: string) {
+  const ref = doc(db, 'rooms', roomId);
+  const snap = await getDoc(ref);
+  return {id: snap.id, ...snap.data()};
 }

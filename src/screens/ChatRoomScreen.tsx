@@ -15,9 +15,22 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import firestore from '@react-native-firebase/firestore';
+
 import auth from '@react-native-firebase/auth';
+import {getFirestore} from '@react-native-firebase/firestore';
 import type {FirebaseFirestoreTypes} from '@react-native-firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query as fsQuery,
+  startAfter,
+  writeBatch,
+  Timestamp,
+} from '@react-native-firebase/firestore';
 
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
@@ -62,34 +75,49 @@ const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
 export default function ChatRoomScreen({route, navigation}: Props) {
   const {roomId} = route.params;
 
+  const PAGE_SIZE = 50;
+  const MORE_SIZE = 50;
+
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesDesc, setMessagesDesc] = useState<Message[]>([]); // <-- DESC: nyeste først
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+
+  // cursor til pagination (sidste doc i DESC query = ældst i de hentede)
+  const oldestDescDocRef = useRef<FirebaseFirestoreTypes.QueryDocumentSnapshot | null>(null);
 
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
-  const query = useMemo(() => {
-    return firestore()
-      .collection('rooms')
-      .doc(roomId)
-      .collection('messages')
-      .orderBy('createdAt', 'desc')
-      .limit(50);
-  }, [roomId]);
+  const db = useMemo(() => getFirestore(), []);
 
-  // Realtime messages
+  const messagesQuery = useMemo(() => {
+    const messagesCol = collection(db, 'rooms', roomId, 'messages');
+    return fsQuery(messagesCol, orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
+  }, [db, roomId, PAGE_SIZE]);
+
   useEffect(() => {
-    const unsub = query.onSnapshot(
+    const unsub = onSnapshot(
+      messagesQuery,
       snap => {
-        const nextDesc: Message[] = snap.docs.map(doc => ({
-          id: doc.id,
-          ...(doc.data() as Omit<Message, 'id'>),
+        const newestDesc: Message[] = snap.docs.map(d => ({
+          id: d.id,
+          ...(d.data() as Omit<Message, 'id'>),
         }));
 
-        // UI: ældste -> nyeste
-        setMessages(nextDesc.slice().reverse());
+        oldestDescDocRef.current = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+        setHasMore(snap.docs.length === PAGE_SIZE);
+
+        // Merge: behold allerede-paginerede ældre beskeder, men erstat/opdatér de nyeste
+        setMessagesDesc(prev => {
+          const newestIds = new Set(newestDesc.map(m => m.id));
+          const olderOnly = prev.filter(m => !newestIds.has(m.id));
+          return [...newestDesc, ...olderOnly];
+        });
+
         setLoading(false);
       },
       err => {
@@ -99,9 +127,8 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     );
 
     return unsub;
-  }, [query]);
+  }, [messagesQuery, PAGE_SIZE]);
 
-  // Cleanup når screen mister fokus / unmount
   useFocusEffect(
     React.useCallback(() => {
       return () => {
@@ -111,7 +138,6 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     }, [])
   );
 
-  // Cleanup præcis når man trykker tilbage (vigtig på Android)
   useEffect(() => {
     const unsub = navigation.addListener('beforeRemove', () => {
       inputRef.current?.blur();
@@ -120,57 +146,98 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     return unsub;
   }, [navigation]);
 
+  const loadMoreOlder = async () => {
+    if (loadingMore || !hasMore) return;
+
+    const cursor = oldestDescDocRef.current;
+    if (!cursor) return;
+
+    try {
+      setLoadingMore(true);
+
+      const messagesCol = collection(db, 'rooms', roomId, 'messages');
+      const qMore = fsQuery(
+        messagesCol,
+        orderBy('createdAt', 'desc'),
+        startAfter(cursor),
+        limit(MORE_SIZE)
+      );
+
+      const snap = await getDocs(qMore);
+
+      if (snap.docs.length) {
+        oldestDescDocRef.current = snap.docs[snap.docs.length - 1];
+      }
+      if (snap.docs.length < MORE_SIZE) {
+        setHasMore(false);
+      }
+
+      const olderDesc: Message[] = snap.docs.map(d => ({
+        id: d.id,
+        ...(d.data() as Omit<Message, 'id'>),
+      }));
+
+      // Append i bunden (array er DESC)
+      setMessagesDesc(prev => {
+        const prevIds = new Set(prev.map(m => m.id));
+        const dedupOlder = olderDesc.filter(m => !prevIds.has(m.id));
+        return [...prev, ...dedupOlder];
+      });
+    } catch (e) {
+      console.warn('loadMoreOlder error', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const sendMessage = async () => {
-  const trimmed = text.trim();
-  if (!trimmed || sending) return;
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
 
-  const user = auth().currentUser;
-  if (!user) return;
+    const user = auth().currentUser;
+    if (!user) return;
 
-  // Luk fokus/keyboard med det samme
-  inputRef.current?.blur();
-  Keyboard.dismiss();
+    inputRef.current?.blur();
+    Keyboard.dismiss();
 
-  // Tag en client-timestamp nu (så UI ikke venter på serverTimestamp)
-  const now = firestore.Timestamp.now();
+    const now = Timestamp.now();
+    setText('');
 
-  // Ryd input med det samme (UI føles mere stabilt)
-  setText('');
+    try {
+      setSending(true);
 
-  try {
-    setSending(true);
+      const roomRef = doc(db, 'rooms', roomId);
+      const msgRef = doc(collection(db, 'rooms', roomId, 'messages'));
 
-    const roomRef = firestore().collection('rooms').doc(roomId);
-    const msgRef = roomRef.collection('messages').doc(); // pre-generate id
+      const batch = writeBatch(db);
 
-    const batch = firestore().batch();
+      batch.set(msgRef, {
+        text: trimmed,
+        createdAt: now,
+        uid: user.uid,
+        displayName: user.displayName ?? user.email ?? 'Unknown',
+        photoURL: user.photoURL ?? null,
+      });
 
-    batch.set(msgRef, {
-      text: trimmed,
-      createdAt: now, // client time (stabilt)
-      uid: user.uid,
-      displayName: user.displayName ?? user.email ?? 'Unknown',
-      photoURL: user.photoURL ?? null,
-    });
+      batch.set(
+        roomRef,
+        {lastMessageAt: now, lastMessageText: trimmed},
+        {merge: true}
+      );
 
-    batch.set(
-      roomRef,
-      {
-        lastMessageAt: now,
-        lastMessageText: trimmed,
-      },
-      {merge: true}
-    );
+      await batch.commit();
 
-    await batch.commit();
-  } catch (e) {
-    console.warn('sendMessage error', e);
-    // Hvis du vil: gendan teksten ved fejl
-    setText(trimmed);
-  } finally {
-    setSending(false);
-  }
-};
+      // scroll til “bund” (som er top i inverted)
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({offset: 0, animated: true});
+      });
+    } catch (e) {
+      console.warn('sendMessage error', e);
+      setText(trimmed);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -183,10 +250,30 @@ export default function ChatRoomScreen({route, navigation}: Props) {
         ) : (
           <FlatList
             ref={listRef}
+            inverted
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
-            data={messages}
+            data={messagesDesc}
             keyExtractor={item => item.id}
+            onEndReached={() => loadMoreOlder()}
+            onEndReachedThreshold={0.2}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={{paddingVertical: 10}}>
+                  <ActivityIndicator />
+                </View>
+              ) : hasMore ? (
+                <Pressable onPress={loadMoreOlder} style={{paddingVertical: 10}}>
+                  <Text style={{textAlign: 'center', color: '#1877F2', fontWeight: '600'}}>
+                    Indlæs flere…
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text style={{textAlign: 'center', color: '#888', paddingVertical: 10}}>
+                  Ingen flere beskeder
+                </Text>
+              )
+            }
             renderItem={({item}) => (
               <View style={styles.row}>
                 {item.photoURL ? (
