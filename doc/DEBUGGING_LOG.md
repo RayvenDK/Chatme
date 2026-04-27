@@ -1,43 +1,51 @@
-# Teknisk Dokumentation: Navigationsfejl og løsning
+# Debugging log
 
-**Dato:** 24. maj 2024
-**Emne:** Skift fra Native Stack til JS Stack Navigation
-**Status:** Løst
+## 24.05.2026 — Navigationsfejl: UI fryser efter chat + tilbage-navigation
 
-## Problembeskrivelse
+**Emne:** UI “fryser” efter afsendelse af besked og tilbage-navigation til room-listen.  
+**Status:** Løst.
 
-I forbindelse med udviklingen af chat-appen opstod der en kritisk fejl i navigationsflowet:
+### Problembeskrivelse
 
-1. Brugeren befinder sig på `HomeScreen` (liste over chatrum).
-2. Brugeren klikker ind på et specifikt chatrum (`ChatScreen`).
+Flow som udløste fejlen:
+
+1. Brugeren er på `ChatRoomsScreen` (liste over chatrum).
+2. Brugeren åbner et room (`ChatRoomScreen`).
 3. Brugeren sender en besked.
-4. Ved afsendelse af besked opstod der en fejl, og når brugeren navigerede tilbage til `HomeScreen`, var skærmen "frosset". Det var ikke længere muligt at klikke på andre rum eller interagere med interfacet.
+4. Ved navigation tilbage til `ChatRoomsScreen` var UI “frosset”:
+   - Tryk på andre rum virkede ikke
+   - Interaktioner føltes låst / ingen respons
 
-## Fejlsøgning (Debugging)
+### Fejlsøgning (hvad der blev undersøgt)
 
-Der blev brugt ca. 8 timer på at løse problemet. Følgende blev undersøgt uden held:
+- **Cleanup af keyboard/focus:** test af `useFocusEffect` cleanup, `beforeRemove` navigation listener, `Keyboard.dismiss()` og `blur()`.
+- **Realtime listener:** gennemgang af om `onSnapshot` unsubscribe blev kaldt korrekt ved unmount / navigation.
+- **State-opdateringer:** forsøg på at reducere re-renders og sikre at updates ikke skete på forkert tidspunkt.
+- **Liste/scroll adfærd:** gennemgang af `FlatList` og keyboard-interaktioner.
 
-- **State Management:** Gennemgang af om beskederne låste appens state.
-- **AI-assisteret fejlfinding:** Forskellige løsningsforslag fra AI blev testet (re-renders, useEffect optimering, navigation listeners), men ingen af dem løste problemet.
-- **Memory leaks:** Undersøgelse af om chat-lyttere ikke blev lukket korrekt.
+### Årsag (konklusion)
 
-## Løsning
+Fejlen virkede bundet til brug af `@react-navigation/native-stack` i kombination med chat-flowet (mange state-opdateringer + keyboard/liste). Det gav en uforudsigelig låsning af UI-tråden i netop dette scenarie.
 
-Problemet blev identificeret som værende relateret til `@react-navigation/native-stack`. Selvom Native Stack yder bedre performance ved at bruge native OS komponenter, skabte det en uforklarlig fastlåsning af UI-tråden i det specifikke chat-flow.
+Der blev ikke fundet én enkel “kode-linje” der udløste fejlen; symptomet forsvandt ved ændring af navigator-implementation.
 
-**Handling:**
-Hele navigationsstrukturen blev migreret fra `native-stack` til den standard JavaScript-baserede Stack Navigator (`@react-navigation/stack`).
+### Løsning
 
-```javascript
+Navigationen blev migreret fra Native Stack til JavaScript Stack Navigator:
+
+```ts
 // Fra:
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Til:
 import { createStackNavigator } from '@react-navigation/stack';
-
-Resultat
-
-Efter skiftet til JS Stack Navigation forsvandt fejlen øjeblikkeligt. Appen fryser ikke længere ved returnering til Home-skærmen, og navigationen mellem rum fungerer stabilt.
-
-Læring: I tilfælde hvor Native Stack skaber uforudsigelig adfærd i komplekse chat-flows med mange state-opdateringer, kan JS Stack være en mere stabil løsning, da den giver React mere direkte kontrol over navigations-interaktionerne.
 ```
+
+### Resultat
+
+- UI fryser ikke længere efter tilbage-navigation.
+- Navigation mellem rooms er stabil igen.
+
+### Læring
+
+Native Stack giver ofte bedre performance, men i visse flows (chat + keyboard + realtime state) kan JS Stack være mere stabil og lettere at debugge, fordi React styrer navigationen mere direkte.

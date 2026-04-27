@@ -14,12 +14,11 @@ export type Room = {
   id: string;
   name: string;
   description: string;
-  lastMessageAt: FirebaseFirestoreTypes.Timestamp;
+  lastMessageAt?: FirebaseFirestoreTypes.Timestamp;
   lastMessageText?: string;
 };
 
 const db = getFirestore();
-
 const roomsCol = () => collection(db, 'rooms');
 
 export function listenToRooms(
@@ -52,7 +51,6 @@ export function listenToRoom(roomId: string, onChange: (room: any) => void) {
   });
 }
 
-// (valgfrit) hvis du får brug for én-gangs fetch af room:
 export async function getRoom(roomId: string) {
   const ref = doc(db, 'rooms', roomId);
   const snap = await getDoc(ref);

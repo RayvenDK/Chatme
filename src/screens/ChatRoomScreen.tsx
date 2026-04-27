@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
@@ -16,50 +16,22 @@ import {
   View,
 } from 'react-native';
 
-import auth from '@react-native-firebase/auth';
-import {getFirestore} from '@react-native-firebase/firestore';
-import type {FirebaseFirestoreTypes} from '@react-native-firebase/firestore';
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query as fsQuery,
-  startAfter,
-  writeBatch,
-  Timestamp,
-} from '@react-native-firebase/firestore';
-
+import {formatTime} from '../utils/format';
+import {initials} from '../utils/user';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+
+import {
+  getCurrentUserOrThrow,
+  loadOlderMessages,
+  type Message,
+  type MessagesCursor,
+  sendMessageToRoom,
+  subscribeToLatestMessages,
+} from '../services/messages';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatRoom'>;
 
-type Message = {
-  id: string;
-  text: string;
-  createdAt?: FirebaseFirestoreTypes.Timestamp;
-  uid?: string;
-  displayName?: string;
-  photoURL?: string | null;
-};
 
-function formatTime(ts?: FirebaseFirestoreTypes.Timestamp) {
-  if (!ts || typeof (ts as any).toDate !== 'function') return '--:--';
-  const d = ts.toDate();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
-function initials(name?: string) {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  const a = parts[0]?.[0] ?? '?';
-  const b = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
-  return (a + b).toUpperCase();
-}
 
 const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
   if (Platform.OS === 'ios') {
@@ -82,36 +54,24 @@ export default function ChatRoomScreen({route, navigation}: Props) {
   const [hasMore, setHasMore] = useState(true);
 
   const [loading, setLoading] = useState(true);
-  const [messagesDesc, setMessagesDesc] = useState<Message[]>([]); // <-- DESC: nyeste først
+  const [messagesDesc, setMessagesDesc] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
 
-  // cursor til pagination (sidste doc i DESC query = ældst i de hentede)
-  const oldestDescDocRef = useRef<FirebaseFirestoreTypes.QueryDocumentSnapshot | null>(null);
+  const cursorRef = useRef<MessagesCursor>(null);
 
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
-  const db = useMemo(() => getFirestore(), []);
-
-  const messagesQuery = useMemo(() => {
-    const messagesCol = collection(db, 'rooms', roomId, 'messages');
-    return fsQuery(messagesCol, orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
-  }, [db, roomId, PAGE_SIZE]);
-
   useEffect(() => {
-    const unsub = onSnapshot(
-      messagesQuery,
-      snap => {
-        const newestDesc: Message[] = snap.docs.map(d => ({
-          id: d.id,
-          ...(d.data() as Omit<Message, 'id'>),
-        }));
+    const unsub = subscribeToLatestMessages(
+      roomId,
+      PAGE_SIZE,
+      ({newestDesc, cursor, hasMore}) => {
+        cursorRef.current = cursor;
+        setHasMore(hasMore);
 
-        oldestDescDocRef.current = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
-        setHasMore(snap.docs.length === PAGE_SIZE);
-
-        // Merge: behold allerede-paginerede ældre beskeder, men erstat/opdatér de nyeste
+        // merge newest into existing (keep older loaded)
         setMessagesDesc(prev => {
           const newestIds = new Set(newestDesc.map(m => m.id));
           const olderOnly = prev.filter(m => !newestIds.has(m.id));
@@ -121,13 +81,13 @@ export default function ChatRoomScreen({route, navigation}: Props) {
         setLoading(false);
       },
       err => {
-        console.warn('messages onSnapshot error', err);
+        console.warn('messages subscribe error', err);
         setLoading(false);
       }
     );
 
     return unsub;
-  }, [messagesQuery, PAGE_SIZE]);
+  }, [roomId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -149,35 +109,21 @@ export default function ChatRoomScreen({route, navigation}: Props) {
   const loadMoreOlder = async () => {
     if (loadingMore || !hasMore) return;
 
-    const cursor = oldestDescDocRef.current;
+    const cursor = cursorRef.current;
     if (!cursor) return;
 
     try {
       setLoadingMore(true);
 
-      const messagesCol = collection(db, 'rooms', roomId, 'messages');
-      const qMore = fsQuery(
-        messagesCol,
-        orderBy('createdAt', 'desc'),
-        startAfter(cursor),
-        limit(MORE_SIZE)
+      const {olderDesc, nextCursor, hasMore: more} = await loadOlderMessages(
+        roomId,
+        cursor,
+        MORE_SIZE
       );
 
-      const snap = await getDocs(qMore);
+      cursorRef.current = nextCursor;
+      setHasMore(more);
 
-      if (snap.docs.length) {
-        oldestDescDocRef.current = snap.docs[snap.docs.length - 1];
-      }
-      if (snap.docs.length < MORE_SIZE) {
-        setHasMore(false);
-      }
-
-      const olderDesc: Message[] = snap.docs.map(d => ({
-        id: d.id,
-        ...(d.data() as Omit<Message, 'id'>),
-      }));
-
-      // Append i bunden (array er DESC)
       setMessagesDesc(prev => {
         const prevIds = new Set(prev.map(m => m.id));
         const dedupOlder = olderDesc.filter(m => !prevIds.has(m.id));
@@ -194,40 +140,17 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
-    const user = auth().currentUser;
-    if (!user) return;
-
     inputRef.current?.blur();
     Keyboard.dismiss();
 
-    const now = Timestamp.now();
     setText('');
 
     try {
       setSending(true);
 
-      const roomRef = doc(db, 'rooms', roomId);
-      const msgRef = doc(collection(db, 'rooms', roomId, 'messages'));
+      const user = getCurrentUserOrThrow();
+      await sendMessageToRoom(roomId, trimmed, user);
 
-      const batch = writeBatch(db);
-
-      batch.set(msgRef, {
-        text: trimmed,
-        createdAt: now,
-        uid: user.uid,
-        displayName: user.displayName ?? user.email ?? 'Unknown',
-        photoURL: user.photoURL ?? null,
-      });
-
-      batch.set(
-        roomRef,
-        {lastMessageAt: now, lastMessageText: trimmed},
-        {merge: true}
-      );
-
-      await batch.commit();
-
-      // scroll til “bund” (som er top i inverted)
       requestAnimationFrame(() => {
         listRef.current?.scrollToOffset({offset: 0, animated: true});
       });
@@ -255,7 +178,7 @@ export default function ChatRoomScreen({route, navigation}: Props) {
             contentContainerStyle={styles.listContent}
             data={messagesDesc}
             keyExtractor={item => item.id}
-            onEndReached={() => loadMoreOlder()}
+            onEndReached={loadMoreOlder}
             onEndReachedThreshold={0.2}
             ListFooterComponent={
               loadingMore ? (
