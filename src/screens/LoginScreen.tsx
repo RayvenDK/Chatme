@@ -28,7 +28,7 @@ export default function LoginScreen() {
 
   const disabled = loading !== null;
 
-  
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
