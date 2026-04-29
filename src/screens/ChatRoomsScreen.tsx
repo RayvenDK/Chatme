@@ -5,7 +5,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import {listenToRooms, refreshRooms, type Room} from '../services/rooms';
-import firestore, {FirebaseFirestoreTypes} from '@react-native-firebase/firestore';
+
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 

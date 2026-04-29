@@ -1,8 +1,8 @@
 # Debugging log
 
-## 24.05.2026 — Navigationsfejl: UI fryser efter chat + tilbage-navigation
+## 25.05.2026 — Navigationsfejl: UI fryser efter chat + tilbage-navigation
 
-**Emne:** UI “fryser” efter afsendelse af besked og tilbage-navigation til room-listen.  
+**Emne:** UI “fryser” efter afsendelse af besked og tilbage-navigation til room-listen.
 **Status:** Løst.
 
 ### Problembeskrivelse

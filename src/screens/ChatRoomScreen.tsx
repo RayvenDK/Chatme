@@ -13,9 +13,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Alert,
   View,
 } from 'react-native';
-
+import {getRoom} from "../services/rooms";
+import {getRoomMember, setRoomNotificationPreference} from '../services/roomMembers';
 import {formatTime} from '../utils/format';
 import {initials} from '../utils/user';
 import type {RootStackParamList} from '../navigation/AppNavigator';
@@ -46,6 +48,31 @@ const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
 
 export default function ChatRoomScreen({route, navigation}: Props) {
   const {roomId} = route.params;
+
+useEffect(() => {
+  let alive = true;
+
+  (async () => {
+    try {
+      const room = await getRoom(roomId);
+      const name = (room as any)?.name;
+      if (!alive) return;
+
+      if (typeof name === "string" && name.trim().length > 0) {
+        navigation.setOptions({title: name});
+      } else {
+        navigation.setOptions({title: "Chat room"});
+      }
+    } catch (e) {
+      if (!alive) return;
+      navigation.setOptions({title: "Chat room"});
+    }
+  })();
+
+  return () => {
+    alive = false;
+  };
+}, [roomId, navigation]);
 
   const PAGE_SIZE = 50;
   const MORE_SIZE = 50;
@@ -136,6 +163,43 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     }
   };
 
+  const maybePromptRoomNotifications = async (uid: string) => {
+  try {
+    const member = await getRoomMember(roomId, uid);
+
+    // Hvis vi allerede har spurgt før, så gør ingenting
+    if (member?.promptedForNotificationsAt) return;
+
+    return new Promise<void>(resolve => {
+      Alert.alert(
+        'Notifikationer',
+        'Vil du have push-notifikationer fra dette chatrum?',
+        [
+          {
+            text: 'Nej tak',
+            style: 'cancel',
+            onPress: async () => {
+              await setRoomNotificationPreference(roomId, uid, false);
+              resolve();
+            },
+          },
+          {
+            text: 'Ja',
+            onPress: async () => {
+              await setRoomNotificationPreference(roomId, uid, true);
+              resolve();
+            },
+          },
+        ],
+        {cancelable: false}
+      );
+    });
+  } catch (e) {
+    // Hvis noget går galt, skal det ikke blokere for at sende beskeden
+    console.warn('maybePromptRoomNotifications error', e);
+  }
+};
+
   const sendMessage = async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
@@ -148,8 +212,12 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     try {
       setSending(true);
 
+
       const user = getCurrentUserOrThrow();
+      // prompt (kun første gang)
+      await maybePromptRoomNotifications(user.uid);
       await sendMessageToRoom(roomId, trimmed, user);
+
 
       requestAnimationFrame(() => {
         listRef.current?.scrollToOffset({offset: 0, animated: true});

@@ -1,7 +1,7 @@
 import auth from '@react-native-firebase/auth';
-import type {FirebaseAuthTypes} from '@react-native-firebase/auth';
-import {getFirestore} from '@react-native-firebase/firestore';
-import type {FirebaseFirestoreTypes} from '@react-native-firebase/firestore';
+import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { getFirestore } from '@react-native-firebase/firestore';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import {
   collection,
   doc,
@@ -24,7 +24,8 @@ export type Message = {
   photoURL?: string | null;
 };
 
-export type MessagesCursor = FirebaseFirestoreTypes.QueryDocumentSnapshot | null;
+export type MessagesCursor =
+  FirebaseFirestoreTypes.QueryDocumentSnapshot | null;
 
 export type LatestMessagesResult = {
   newestDesc: Message[];
@@ -46,7 +47,7 @@ export function listenToLatestMessages(roomId: string, pageSize: number) {
     const cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
     const hasMore = snap.docs.length === pageSize;
 
-    const result: LatestMessagesResult = {newestDesc, cursor, hasMore};
+    const result: LatestMessagesResult = { newestDesc, cursor, hasMore };
     return result;
   });
 }
@@ -58,7 +59,7 @@ export function subscribeToLatestMessages(
   roomId: string,
   pageSize: number,
   onNext: (result: LatestMessagesResult) => void,
-  onError?: (err: unknown) => void
+  onError?: (err: unknown) => void,
 ) {
   const db = getFirestore();
   const messagesCol = collection(db, 'rooms', roomId, 'messages');
@@ -75,14 +76,23 @@ export function subscribeToLatestMessages(
       const cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
       const hasMore = snap.docs.length === pageSize;
 
-      onNext({newestDesc, cursor, hasMore});
+      onNext({ newestDesc, cursor, hasMore });
     },
-    err => onError?.(err)
+    err => onError?.(err),
   );
 }
 
-export async function loadOlderMessages(roomId: string, cursor: MessagesCursor, pageSize: number) {
-  if (!cursor) return {olderDesc: [] as Message[], nextCursor: null as MessagesCursor, hasMore: false};
+export async function loadOlderMessages(
+  roomId: string,
+  cursor: MessagesCursor,
+  pageSize: number,
+) {
+  if (!cursor)
+    return {
+      olderDesc: [] as Message[],
+      nextCursor: null as MessagesCursor,
+      hasMore: false,
+    };
 
   const db = getFirestore();
   const messagesCol = collection(db, 'rooms', roomId, 'messages');
@@ -91,7 +101,7 @@ export async function loadOlderMessages(roomId: string, cursor: MessagesCursor, 
     messagesCol,
     orderBy('createdAt', 'desc'),
     startAfter(cursor),
-    limit(pageSize)
+    limit(pageSize),
   );
 
   const snap = await getDocs(qMore);
@@ -101,10 +111,12 @@ export async function loadOlderMessages(roomId: string, cursor: MessagesCursor, 
     ...(d.data() as Omit<Message, 'id'>),
   }));
 
-  const nextCursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : cursor;
+  const nextCursor = snap.docs.length
+    ? snap.docs[snap.docs.length - 1]
+    : cursor;
   const hasMore = snap.docs.length === pageSize;
 
-  return {olderDesc, nextCursor, hasMore};
+  return { olderDesc, nextCursor, hasMore };
 }
 
 export function getCurrentUserOrThrow(): FirebaseAuthTypes.User {
@@ -113,7 +125,11 @@ export function getCurrentUserOrThrow(): FirebaseAuthTypes.User {
   return user;
 }
 
-export async function sendMessageToRoom(roomId: string, text: string, user: FirebaseAuthTypes.User) {
+export async function sendMessageToRoom(
+  roomId: string,
+  text: string,
+  user: FirebaseAuthTypes.User,
+) {
   const trimmed = text.trim();
   if (!trimmed) return;
 
@@ -133,7 +149,11 @@ export async function sendMessageToRoom(roomId: string, text: string, user: Fire
     photoURL: user.photoURL ?? null,
   });
 
-  batch.set(roomRef, {lastMessageAt: now, lastMessageText: trimmed}, {merge: true});
+  batch.set(
+    roomRef,
+    { lastMessageAt: now, lastMessageText: trimmed },
+    { merge: true },
+  );
 
   await batch.commit();
 }
