@@ -1,8 +1,10 @@
 import React, {useEffect, useRef, useState} from 'react';
+import auth from '@react-native-firebase/auth';
 import {useFocusEffect} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Keyboard,
@@ -13,10 +15,12 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  Alert,
   View,
 } from 'react-native';
-import {getRoom} from "../services/rooms";
+import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+
+import {sendImageToRoom} from '../services/images';
+import {getRoom} from '../services/rooms';
 import {getRoomMember, setRoomNotificationPreference} from '../services/roomMembers';
 import {formatTime} from '../utils/format';
 import {initials} from '../utils/user';
@@ -33,8 +37,6 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatRoom'>;
 
-
-
 const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
   if (Platform.OS === 'ios') {
     return (
@@ -48,31 +50,6 @@ const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
 
 export default function ChatRoomScreen({route, navigation}: Props) {
   const {roomId} = route.params;
-
-useEffect(() => {
-  let alive = true;
-
-  (async () => {
-    try {
-      const room = await getRoom(roomId);
-      const name = (room as any)?.name;
-      if (!alive) return;
-
-      if (typeof name === "string" && name.trim().length > 0) {
-        navigation.setOptions({title: name});
-      } else {
-        navigation.setOptions({title: "Chat room"});
-      }
-    } catch (e) {
-      if (!alive) return;
-      navigation.setOptions({title: "Chat room"});
-    }
-  })();
-
-  return () => {
-    alive = false;
-  };
-}, [roomId, navigation]);
 
   const PAGE_SIZE = 50;
   const MORE_SIZE = 50;
@@ -90,6 +67,34 @@ useEffect(() => {
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
+  // Set header title from room name
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const room = await getRoom(roomId);
+        const name = (room as any)?.name;
+
+        if (!alive) return;
+
+        if (typeof name === 'string' && name.trim().length > 0) {
+          navigation.setOptions({title: name});
+        } else {
+          navigation.setOptions({title: 'Chat room'});
+        }
+      } catch (e) {
+        if (!alive) return;
+        navigation.setOptions({title: 'Chat room'});
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [roomId, navigation]);
+
+  // Subscribe to messages
   useEffect(() => {
     const unsub = subscribeToLatestMessages(
       roomId,
@@ -98,7 +103,6 @@ useEffect(() => {
         cursorRef.current = cursor;
         setHasMore(hasMore);
 
-        // merge newest into existing (keep older loaded)
         setMessagesDesc(prev => {
           const newestIds = new Set(newestDesc.map(m => m.id));
           const olderOnly = prev.filter(m => !newestIds.has(m.id));
@@ -110,7 +114,7 @@ useEffect(() => {
       err => {
         console.warn('messages subscribe error', err);
         setLoading(false);
-      }
+      },
     );
 
     return unsub;
@@ -122,7 +126,7 @@ useEffect(() => {
         inputRef.current?.blur();
         Keyboard.dismiss();
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -145,7 +149,7 @@ useEffect(() => {
       const {olderDesc, nextCursor, hasMore: more} = await loadOlderMessages(
         roomId,
         cursor,
-        MORE_SIZE
+        MORE_SIZE,
       );
 
       cursorRef.current = nextCursor;
@@ -164,41 +168,87 @@ useEffect(() => {
   };
 
   const maybePromptRoomNotifications = async (uid: string) => {
-  try {
-    const member = await getRoomMember(roomId, uid);
+    try {
+      const member = await getRoomMember(roomId, uid);
 
-    // Hvis vi allerede har spurgt før, så gør ingenting
-    if (member?.promptedForNotificationsAt) return;
+      // Hvis vi allerede har spurgt før, så gør ingenting
+      if (member?.promptedForNotificationsAt) return;
 
-    return new Promise<void>(resolve => {
-      Alert.alert(
-        'Notifikationer',
-        'Vil du have push-notifikationer fra dette chatrum?',
-        [
-          {
-            text: 'Nej tak',
-            style: 'cancel',
-            onPress: async () => {
-              await setRoomNotificationPreference(roomId, uid, false);
-              resolve();
+      return new Promise<void>(resolve => {
+        Alert.alert(
+          'Notifikationer',
+          'Vil du have push-notifikationer fra dette chatrum?',
+          [
+            {
+              text: 'Nej tak',
+              style: 'cancel',
+              onPress: async () => {
+                await setRoomNotificationPreference(roomId, uid, false);
+                resolve();
+              },
             },
-          },
-          {
-            text: 'Ja',
-            onPress: async () => {
-              await setRoomNotificationPreference(roomId, uid, true);
-              resolve();
+            {
+              text: 'Ja',
+              onPress: async () => {
+                await setRoomNotificationPreference(roomId, uid, true);
+                resolve();
+              },
             },
-          },
-        ],
-        {cancelable: false}
-      );
-    });
-  } catch (e) {
-    // Hvis noget går galt, skal det ikke blokere for at sende beskeden
-    console.warn('maybePromptRoomNotifications error', e);
-  }
-};
+          ],
+          {cancelable: false},
+        );
+      });
+    } catch (e) {
+      console.warn('maybePromptRoomNotifications error', e);
+    }
+  };
+
+  const pickFromGallery = async () => {
+    try {
+      const res = await launchImageLibrary({
+        mediaType: 'photo',
+        selectionLimit: 1,
+      });
+
+      const asset = res.assets?.[0];
+      const uri = asset?.uri;
+      if (!uri) return;
+
+      const user = getCurrentUserOrThrow();
+      await maybePromptRoomNotifications(user.uid);
+      await sendImageToRoom(roomId, uri, user);
+
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({offset: 0, animated: true});
+      });
+    } catch (e) {
+      console.warn('pickFromGallery error', e);
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const res = await launchCamera({
+        mediaType: 'photo',
+        cameraType: 'back',
+        saveToPhotos: true,
+      });
+
+      const asset = res.assets?.[0];
+      const uri = asset?.uri;
+      if (!uri) return;
+
+      const user = getCurrentUserOrThrow();
+      await maybePromptRoomNotifications(user.uid);
+      await sendImageToRoom(roomId, uri, user);
+
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({offset: 0, animated: true});
+      });
+    } catch (e) {
+      console.warn('takePhoto error', e);
+    }
+  };
 
   const sendMessage = async () => {
     const trimmed = text.trim();
@@ -206,18 +256,14 @@ useEffect(() => {
 
     inputRef.current?.blur();
     Keyboard.dismiss();
-
     setText('');
 
     try {
       setSending(true);
 
-
       const user = getCurrentUserOrThrow();
-      // prompt (kun første gang)
       await maybePromptRoomNotifications(user.uid);
       await sendMessageToRoom(roomId, trimmed, user);
-
 
       requestAnimationFrame(() => {
         listRef.current?.scrollToOffset({offset: 0, animated: true});
@@ -265,28 +311,47 @@ useEffect(() => {
                 </Text>
               )
             }
-            renderItem={({item}) => (
-              <View style={styles.row}>
-                {item.photoURL ? (
-                  <Image source={{uri: item.photoURL}} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarFallback]}>
-                    <Text style={styles.avatarInitials}>{initials(item.displayName)}</Text>
-                  </View>
-                )}
+            renderItem={({item}) => {
+              const myUid = auth().currentUser?.uid;
+              const isMine = !!myUid && item.uid === myUid;
 
-                <View style={{flex: 1}}>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.name} numberOfLines={1}>
-                      {item.displayName ?? 'Unknown'}
-                    </Text>
-                    <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
-                  </View>
+              return (
+                <View style={[styles.chatMessageRow, isMine ? styles.chatRowMine : styles.chatRowTheirs]}>
+                  {!isMine ? (
+                    item.photoURL ? (
+                      <Image source={{uri: item.photoURL}} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback]}>
+                        <Text style={styles.avatarInitials}>{initials(item.displayName)}</Text>
+                      </View>
+                    )
+                  ) : (
+                    <View style={{width: 40}} />
+                  )}
 
-                  <Text style={styles.messageText}>{item.text}</Text>
+                  <View style={[styles.chatBubble, isMine ? styles.chatBubbleMine : styles.chatBubbleTheirs]}>
+                    <View style={styles.metaRow}>
+                      {!isMine ? (
+                        <Text style={styles.chatName} numberOfLines={1}>
+                          {item.displayName ?? 'Unknown'}
+                        </Text>
+                      ) : (
+                        <View style={{flex: 1}} />
+                      )}
+                      <Text style={styles.chatTime}>{formatTime(item.createdAt)}</Text>
+                    </View>
+
+                    {item.type === 'image' && item.imageUrl ? (
+                      <Image source={{uri: item.imageUrl}} style={styles.chatImage} />
+                    ) : (
+                      <Text style={[styles.chatMessageText, isMine ? {color: '#fff'} : null]}>
+                        {item.text}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              </View>
-            )}
+              );
+            }}
             ItemSeparatorComponent={() => <View style={{height: 10}} />}
             ListEmptyComponent={
               <Text style={{color: '#666', paddingTop: 16}}>Ingen beskeder endnu.</Text>
@@ -295,6 +360,14 @@ useEffect(() => {
         )}
 
         <View style={styles.inputBar}>
+          <Pressable onPress={takePhoto} style={styles.iconBtn} hitSlop={10}>
+            <Text style={styles.iconBtnText}>📷</Text>
+          </Pressable>
+
+          <Pressable onPress={pickFromGallery} style={styles.iconBtn} hitSlop={10}>
+            <Text style={styles.iconBtnText}>🖼️</Text>
+          </Pressable>
+
           <TextInput
             ref={inputRef}
             value={text}
@@ -325,18 +398,58 @@ useEffect(() => {
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
   listContent: {padding: 16, paddingBottom: 10},
-
   center: {flex: 1, alignItems: 'center', justifyContent: 'center'},
 
-  row: {flexDirection: 'row', gap: 12},
   avatar: {width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee'},
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},
   avatarInitials: {fontWeight: '700', color: '#333'},
 
   metaRow: {flexDirection: 'row', alignItems: 'baseline', gap: 8},
-  name: {flex: 1, fontWeight: '700', color: '#111'},
-  time: {color: '#888', fontSize: 12},
-  messageText: {marginTop: 2, color: '#222'},
+
+  chatMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  chatRowMine: {
+    justifyContent: 'flex-end',
+  },
+  chatRowTheirs: {
+    justifyContent: 'flex-start',
+  },
+  chatBubble: {
+    flexShrink: 1,
+    maxWidth: '80%',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  chatBubbleMine: {
+    backgroundColor: '#1877F2',
+  },
+  chatBubbleTheirs: {
+    backgroundColor: '#f2f2f2',
+  },
+  chatName: {
+    flex: 1,
+    fontWeight: '700',
+    color: '#111',
+  },
+  chatTime: {
+    color: '#888',
+    fontSize: 12,
+  },
+  chatMessageText: {
+    marginTop: 6,
+    color: '#111',
+  },
+  chatImage: {
+    marginTop: 8,
+    width: 240,
+    height: 240,
+    borderRadius: 12,
+    backgroundColor: '#ddd',
+  },
 
   inputBar: {
     flexDirection: 'row',
@@ -371,4 +484,18 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {opacity: 0.5},
   sendText: {color: '#fff', fontWeight: '700'},
+
+  iconBtn: {
+    height: 40,
+    width: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f3f3',
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
+  },
+  iconBtnText: {
+    fontSize: 18,
+  },
 });
