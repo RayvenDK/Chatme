@@ -17,7 +17,9 @@ import {
 
 export type Message = {
   id: string;
-  text: string;
+  type?: 'text' | 'image';
+  text?: string;
+  imageUrl?: string;
   createdAt?: FirebaseFirestoreTypes.Timestamp;
   uid?: string;
   displayName?: string;
@@ -142,6 +144,7 @@ export async function sendMessageToRoom(
   const batch = writeBatch(db);
 
   batch.set(msgRef, {
+    type: 'text',
     text: trimmed,
     createdAt: now,
     uid: user.uid,
