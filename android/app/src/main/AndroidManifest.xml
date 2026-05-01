@@ -1,5 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -12,7 +11,6 @@
     android:theme="@style/AppTheme"
     android:usesCleartextTraffic="${usesCleartextTraffic}"
     android:supportsRtl="true">
-
     <meta-data
       android:name="com.facebook.sdk.ApplicationId"
       android:value="@string/facebook_app_id" />
@@ -32,8 +30,8 @@
       android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
       android:launchMode="singleTask"
       android:windowSoftInputMode="adjustResize"
-      android:exported="true">
-
+      android:exported="true"
+      android:theme="@style/BootTheme">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
@@ -45,8 +43,6 @@
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="@string/fb_login_protocol_scheme" />
       </intent-filter>
-
     </activity>
-
   </application>
 </manifest>

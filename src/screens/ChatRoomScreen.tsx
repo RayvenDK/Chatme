@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -15,110 +14,52 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Modal,
+  Image,
   View,
 } from 'react-native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 
-import {sendImageToRoom} from '../services/images';
-import {getRoom} from '../services/rooms';
-import {getRoomMember, setRoomNotificationPreference} from '../services/roomMembers';
-import {formatTime} from '../utils/format';
-import {initials} from '../utils/user';
-import type {RootStackParamList} from '../navigation/AppNavigator';
 
-import {
-  getCurrentUserOrThrow,
-  loadOlderMessages,
-  type Message,
-  type MessagesCursor,
-  sendMessageToRoom,
-  subscribeToLatestMessages,
-} from '../services/messages';
+import type {RootStackParamList} from '../navigation/AppNavigator';
+import {sendImageToRoom} from '../services/images';
+import {getRoomMember, setRoomNotificationPreference} from '../services/roomMembers';
+import {getCurrentUserOrThrow, type Message, sendMessageToRoom} from '../services/messages';
+
+import {useRoomTitle} from './chatRoom/useRoomTitle';
+import {useRoomMessages} from './chatRoom/useRoomMessages';
+import {MessageBubble} from './chatRoom/MessageBubble';
+import {ChatInputBar} from './chatRoom/ChatInputBar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatRoom'>;
 
 const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
-  if (Platform.OS === 'ios') {
-    return (
-      <KeyboardAvoidingView style={{flex: 1}} behavior="padding" keyboardVerticalOffset={80}>
-        {children}
-      </KeyboardAvoidingView>
-    );
-  }
-  return <View style={{flex: 1}}>{children}</View>;
+  return (
+    <KeyboardAvoidingView
+      style={{flex: 1}}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // Justér hvis nødvendigt (typisk 0-80)
+      // Samsung/Android 15/16 needs larger offset so input stays visible above keyboard
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 105}>
+      {children}
+    </KeyboardAvoidingView>
+  );
 };
 
 export default function ChatRoomScreen({route, navigation}: Props) {
   const {roomId} = route.params;
 
-  const PAGE_SIZE = 50;
-  const MORE_SIZE = 50;
+  useRoomTitle(roomId, navigation);
 
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const {loading, messagesDesc, loadingMore, hasMore, loadMoreOlder} = useRoomMessages(roomId);
 
-  const [loading, setLoading] = useState(true);
-  const [messagesDesc, setMessagesDesc] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
 
-  const cursorRef = useRef<MessagesCursor>(null);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<Message>>(null);
-
-  // Set header title from room name
-  useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      try {
-        const room = await getRoom(roomId);
-        const name = (room as any)?.name;
-
-        if (!alive) return;
-
-        if (typeof name === 'string' && name.trim().length > 0) {
-          navigation.setOptions({title: name});
-        } else {
-          navigation.setOptions({title: 'Chat room'});
-        }
-      } catch (e) {
-        if (!alive) return;
-        navigation.setOptions({title: 'Chat room'});
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [roomId, navigation]);
-
-  // Subscribe to messages
-  useEffect(() => {
-    const unsub = subscribeToLatestMessages(
-      roomId,
-      PAGE_SIZE,
-      ({newestDesc, cursor, hasMore}) => {
-        cursorRef.current = cursor;
-        setHasMore(hasMore);
-
-        setMessagesDesc(prev => {
-          const newestIds = new Set(newestDesc.map(m => m.id));
-          const olderOnly = prev.filter(m => !newestIds.has(m.id));
-          return [...newestDesc, ...olderOnly];
-        });
-
-        setLoading(false);
-      },
-      err => {
-        console.warn('messages subscribe error', err);
-        setLoading(false);
-      },
-    );
-
-    return unsub;
-  }, [roomId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -126,7 +67,7 @@ export default function ChatRoomScreen({route, navigation}: Props) {
         inputRef.current?.blur();
         Keyboard.dismiss();
       };
-    }, []),
+    }, [])
   );
 
   useEffect(() => {
@@ -137,41 +78,9 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     return unsub;
   }, [navigation]);
 
-  const loadMoreOlder = async () => {
-    if (loadingMore || !hasMore) return;
-
-    const cursor = cursorRef.current;
-    if (!cursor) return;
-
-    try {
-      setLoadingMore(true);
-
-      const {olderDesc, nextCursor, hasMore: more} = await loadOlderMessages(
-        roomId,
-        cursor,
-        MORE_SIZE,
-      );
-
-      cursorRef.current = nextCursor;
-      setHasMore(more);
-
-      setMessagesDesc(prev => {
-        const prevIds = new Set(prev.map(m => m.id));
-        const dedupOlder = olderDesc.filter(m => !prevIds.has(m.id));
-        return [...prev, ...dedupOlder];
-      });
-    } catch (e) {
-      console.warn('loadMoreOlder error', e);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
   const maybePromptRoomNotifications = async (uid: string) => {
     try {
       const member = await getRoomMember(roomId, uid);
-
-      // Hvis vi allerede har spurgt før, så gør ingenting
       if (member?.promptedForNotificationsAt) return;
 
       return new Promise<void>(resolve => {
@@ -195,7 +104,7 @@ export default function ChatRoomScreen({route, navigation}: Props) {
               },
             },
           ],
-          {cancelable: false},
+          {cancelable: false}
         );
       });
     } catch (e) {
@@ -203,24 +112,22 @@ export default function ChatRoomScreen({route, navigation}: Props) {
     }
   };
 
+  const scrollToTop = () => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({offset: 0, animated: true});
+    });
+  };
+
   const pickFromGallery = async () => {
     try {
-      const res = await launchImageLibrary({
-        mediaType: 'photo',
-        selectionLimit: 1,
-      });
-
-      const asset = res.assets?.[0];
-      const uri = asset?.uri;
+      const res = await launchImageLibrary({mediaType: 'photo', selectionLimit: 1});
+      const uri = res.assets?.[0]?.uri;
       if (!uri) return;
 
       const user = getCurrentUserOrThrow();
       await maybePromptRoomNotifications(user.uid);
       await sendImageToRoom(roomId, uri, user);
-
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToOffset({offset: 0, animated: true});
-      });
+      scrollToTop();
     } catch (e) {
       console.warn('pickFromGallery error', e);
     }
@@ -233,24 +140,19 @@ export default function ChatRoomScreen({route, navigation}: Props) {
         cameraType: 'back',
         saveToPhotos: true,
       });
-
-      const asset = res.assets?.[0];
-      const uri = asset?.uri;
+      const uri = res.assets?.[0]?.uri;
       if (!uri) return;
 
       const user = getCurrentUserOrThrow();
       await maybePromptRoomNotifications(user.uid);
       await sendImageToRoom(roomId, uri, user);
-
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToOffset({offset: 0, animated: true});
-      });
+      scrollToTop();
     } catch (e) {
       console.warn('takePhoto error', e);
     }
   };
 
-  const sendMessage = async () => {
+  const sendText = async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
@@ -260,14 +162,10 @@ export default function ChatRoomScreen({route, navigation}: Props) {
 
     try {
       setSending(true);
-
       const user = getCurrentUserOrThrow();
       await maybePromptRoomNotifications(user.uid);
       await sendMessageToRoom(roomId, trimmed, user);
-
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToOffset({offset: 0, animated: true});
-      });
+      scrollToTop();
     } catch (e) {
       console.warn('sendMessage error', e);
       setText(trimmed);
@@ -314,43 +212,7 @@ export default function ChatRoomScreen({route, navigation}: Props) {
             renderItem={({item}) => {
               const myUid = auth().currentUser?.uid;
               const isMine = !!myUid && item.uid === myUid;
-
-              return (
-                <View style={[styles.chatMessageRow, isMine ? styles.chatRowMine : styles.chatRowTheirs]}>
-                  {!isMine ? (
-                    item.photoURL ? (
-                      <Image source={{uri: item.photoURL}} style={styles.avatar} />
-                    ) : (
-                      <View style={[styles.avatar, styles.avatarFallback]}>
-                        <Text style={styles.avatarInitials}>{initials(item.displayName)}</Text>
-                      </View>
-                    )
-                  ) : (
-                    <View style={{width: 40}} />
-                  )}
-
-                  <View style={[styles.chatBubble, isMine ? styles.chatBubbleMine : styles.chatBubbleTheirs]}>
-                    <View style={styles.metaRow}>
-                      {!isMine ? (
-                        <Text style={styles.chatName} numberOfLines={1}>
-                          {item.displayName ?? 'Unknown'}
-                        </Text>
-                      ) : (
-                        <View style={{flex: 1}} />
-                      )}
-                      <Text style={styles.chatTime}>{formatTime(item.createdAt)}</Text>
-                    </View>
-
-                    {item.type === 'image' && item.imageUrl ? (
-                      <Image source={{uri: item.imageUrl}} style={styles.chatImage} />
-                    ) : (
-                      <Text style={[styles.chatMessageText, isMine ? {color: '#fff'} : null]}>
-                        {item.text}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              );
+              return <MessageBubble item={item} isMine={isMine} styles={styles} onOpenImage={setViewerUrl}/>;
             }}
             ItemSeparatorComponent={() => <View style={{height: 10}} />}
             ListEmptyComponent={
@@ -359,41 +221,35 @@ export default function ChatRoomScreen({route, navigation}: Props) {
           />
         )}
 
-        <View style={styles.inputBar}>
-          <Pressable onPress={takePhoto} style={styles.iconBtn} hitSlop={10}>
-            <Text style={styles.iconBtnText}>📷</Text>
-          </Pressable>
-
-          <Pressable onPress={pickFromGallery} style={styles.iconBtn} hitSlop={10}>
-            <Text style={styles.iconBtnText}>🖼️</Text>
-          </Pressable>
-
-          <TextInput
-            ref={inputRef}
-            value={text}
-            onChangeText={setText}
-            placeholder="Skriv en besked…"
-            style={styles.input}
-            multiline={false}
-            editable={!sending}
-            blurOnSubmit
-          />
-
-          <Pressable
-            onPress={sendMessage}
-            disabled={sending || text.trim().length === 0}
-            style={({pressed}) => [
-              styles.sendBtn,
-              sending || text.trim().length === 0 ? styles.sendBtnDisabled : null,
-              pressed ? {opacity: 0.85} : null,
-            ]}>
-            {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
-          </Pressable>
-        </View>
+        <ChatInputBar
+          styles={styles}
+          text={text}
+          setText={setText}
+          inputRef={inputRef}
+          sending={sending}
+          onSendText={sendText}
+          onTakePhoto={takePhoto}
+          onPickFromGallery={pickFromGallery}
+        />
+      <Modal
+          visible={!!viewerUrl}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setViewerUrl(null)}>
+        <Pressable
+          style={styles.viewerBackdrop}
+          onPress={() => setViewerUrl(null)}>
+          {viewerUrl ? (
+          <Image source={{uri: viewerUrl}} style={styles.viewerImage} resizeMode="contain" />
+          ) : null}
+        </Pressable>
+      </Modal>
       </Wrapper>
     </SafeAreaView>
+
   );
 }
+
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
@@ -406,17 +262,10 @@ const styles = StyleSheet.create({
 
   metaRow: {flexDirection: 'row', alignItems: 'baseline', gap: 8},
 
-  chatMessageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-  },
-  chatRowMine: {
-    justifyContent: 'flex-end',
-  },
-  chatRowTheirs: {
-    justifyContent: 'flex-start',
-  },
+  chatMessageRow: {flexDirection: 'row', alignItems: 'flex-end', gap: 10},
+  chatRowMine: {justifyContent: 'flex-end'},
+  chatRowTheirs: {justifyContent: 'flex-start'},
+
   chatBubble: {
     flexShrink: 1,
     maxWidth: '80%',
@@ -424,25 +273,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  chatBubbleMine: {
-    backgroundColor: '#1877F2',
-  },
-  chatBubbleTheirs: {
-    backgroundColor: '#f2f2f2',
-  },
-  chatName: {
-    flex: 1,
-    fontWeight: '700',
-    color: '#111',
-  },
-  chatTime: {
-    color: '#888',
-    fontSize: 12,
-  },
-  chatMessageText: {
-    marginTop: 6,
-    color: '#111',
-  },
+  chatBubbleMine: {backgroundColor: '#1877F2'},
+  chatBubbleTheirs: {backgroundColor: '#f2f2f2'},
+
+  chatName: {flex: 1, fontWeight: '700', color: '#111'},
+  chatTime: {color: '#888', fontSize: 12},
+  chatMessageText: {marginTop: 6, color: '#111'},
+
   chatImage: {
     marginTop: 8,
     width: 240,
@@ -473,6 +310,7 @@ const styles = StyleSheet.create({
     color: '#111',
     backgroundColor: '#fafafa',
   },
+
   sendBtn: {
     height: 40,
     minWidth: 70,
@@ -495,7 +333,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e6e6e6',
   },
-  iconBtnText: {
-    fontSize: 18,
-  },
+  iconBtnText: {fontSize: 18},
+
+  viewerBackdrop: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.9)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+viewerImage: {
+  width: '100%',
+  height: '80%',
+},
 });
