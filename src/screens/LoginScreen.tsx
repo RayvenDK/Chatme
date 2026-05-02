@@ -39,7 +39,7 @@ export default function LoginScreen() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.subtitle}>Velkoommen til Chatme Log ind for at fortsætte</Text>
+          <Text style={styles.subtitle}>Velkommen til Chatme Log ind for at fortsætte</Text>
         </View>
 
         {/* Bottom buttons */}
@@ -134,4 +134,8 @@ const styles = StyleSheet.create({
   facebookText: {flex: 1, color: '#fff', fontSize: 15, fontWeight: '600'},
 
   terms: {marginTop: 4, color: '#888', fontSize: 12, textAlign: 'center'},
+
+  subtitle: {marginTop: 4, color: '#888', fontSize: 12, textAlign: 'center'},
+
+  logo: {}
 });

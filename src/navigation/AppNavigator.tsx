@@ -41,22 +41,36 @@ export default function AppNavigator({signedIn}: {signedIn: boolean}) {
           />
 
           <Stack.Screen
-  name="ChatRoom"
-  component={ChatRoomScreen}
-  options={({route, navigation}) => ({
-    title: route.params.title ?? 'Chat room',
-    headerLeft: () => (
-      <Pressable
-        onPress={() => navigation.goBack()}
-        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-        style={{paddingHorizontal: 12, paddingVertical: 6}}>
-        <Text style={{fontSize: 22, color: '#111'}}>{"‹"}</Text>
-      </Pressable>
-    ),
-  })}
-/>
+            name="ChatRoom"
+            component={ChatRoomScreen}
+            options={({route, navigation}) => ({
+              title: route.params.title ?? 'Chat room',
+              headerLeft: () => (
+                <Pressable
+                  onPress={() => navigation.goBack()}
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                  style={{paddingHorizontal: 12, paddingVertical: 6}}>
+                  <Text style={{fontSize: 22, color: '#111'}}>{'‹'}</Text>
+                </Pressable>
+              ),
+            })}
+          />
 
-          <Stack.Screen name="Settings" component={SettingsScreen} options={{title: 'Settings'}} />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={({navigation}) => ({
+              title: 'Settings',
+              headerLeft: () => (
+                <Pressable
+                  onPress={() => navigation.goBack()}
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                  style={{paddingHorizontal: 12, paddingVertical: 6}}>
+                  <Text style={{fontSize: 22, color: '#111'}}>{'‹'}</Text>
+                </Pressable>
+              ),
+            })}
+          />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} options={{title: 'Sign in'}} />

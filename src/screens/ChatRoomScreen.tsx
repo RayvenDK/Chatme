@@ -307,8 +307,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#111',
-    backgroundColor: '#fafafa',
+    color: '#f5f5f5',
+    backgroundColor: '#d3cfcf',
   },
 
   sendBtn: {
