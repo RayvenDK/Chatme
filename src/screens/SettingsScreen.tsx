@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {View, Button, Alert, ActivityIndicator, Text} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
@@ -7,6 +7,8 @@ import {GoogleSignin} from '@react-native-google-signin/google-signin';
 
 export default function SettingsScreen() {
   const [loading, setLoading] = useState(false);
+
+  const email = useMemo(() => auth().currentUser?.email ?? '(ingen email)', []);
 
   const signOut = async () => {
     try {
@@ -22,7 +24,6 @@ export default function SettingsScreen() {
 
       // Facebook (valgfrit)
       // try { LoginManager.logOut(); } catch {}
-
     } catch (e: any) {
       Alert.alert('Fejl', e?.message ?? String(e));
     } finally {
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
   return (
     <View style={{flex: 1, padding: 16, gap: 12}}>
       <Text style={{fontSize: 16, fontWeight: '600'}}>Konto</Text>
+      <Text style={{color: '#444'}}>{email}</Text>
 
       {loading ? <ActivityIndicator /> : null}
 

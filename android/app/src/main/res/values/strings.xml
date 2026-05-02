@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Chatme</string>
-    <string name="facebook_app_id">733526139781879</string>
+    <string name="facebook_app_id">1506159620865730</string>
     <string name="facebook_client_token">fc5c272678596272fd700ab3ea2bd84c</string>
-    <string name="fb_login_protocol_scheme">fbD733526139781879</string>
+    <string name="fb_login_protocol_scheme">fb1506159620865730</string>
 </resources>

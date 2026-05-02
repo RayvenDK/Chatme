@@ -13,6 +13,7 @@ import {
   startAfter,
   Timestamp,
   writeBatch,
+  QueryDocumentSnapshot, // Tilføjet denne
 } from '@react-native-firebase/firestore';
 
 export type Message = {
@@ -26,12 +27,12 @@ export type Message = {
   photoURL?: string | null;
 };
 
-export type MessagesCursor =
-  FirebaseFirestoreTypes.QueryDocumentSnapshot | null;
+export type Cursor =
+  QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData> | null;
 
 export type LatestMessagesResult = {
   newestDesc: Message[];
-  cursor: MessagesCursor;
+  cursor: Cursor;
   hasMore: boolean;
 };
 
@@ -46,7 +47,9 @@ export function listenToLatestMessages(roomId: string, pageSize: number) {
       ...(d.data() as Omit<Message, 'id'>),
     }));
 
-    const cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+    const cursor: Cursor = snap.docs.length
+      ? snap.docs[snap.docs.length - 1]
+      : null;
     const hasMore = snap.docs.length === pageSize;
 
     const result: LatestMessagesResult = { newestDesc, cursor, hasMore };
@@ -75,7 +78,9 @@ export function subscribeToLatestMessages(
         ...(d.data() as Omit<Message, 'id'>),
       }));
 
-      const cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+      const cursor: Cursor = snap.docs.length
+        ? snap.docs[snap.docs.length - 1]
+        : null;
       const hasMore = snap.docs.length === pageSize;
 
       onNext({ newestDesc, cursor, hasMore });
@@ -86,13 +91,13 @@ export function subscribeToLatestMessages(
 
 export async function loadOlderMessages(
   roomId: string,
-  cursor: MessagesCursor,
+  cursor: Cursor,
   pageSize: number,
 ) {
   if (!cursor)
     return {
       olderDesc: [] as Message[],
-      nextCursor: null as MessagesCursor,
+      nextCursor: null as Cursor,
       hasMore: false,
     };
 
@@ -113,7 +118,7 @@ export async function loadOlderMessages(
     ...(d.data() as Omit<Message, 'id'>),
   }));
 
-  const nextCursor = snap.docs.length
+  const nextCursor: Cursor = snap.docs.length
     ? snap.docs[snap.docs.length - 1]
     : cursor;
   const hasMore = snap.docs.length === pageSize;
