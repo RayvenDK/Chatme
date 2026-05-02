@@ -64,7 +64,11 @@ export default function LoginScreen() {
 
           <Pressable
             disabled={disabled}
-            onPress={() => run('facebook', signInWithFacebook)}
+            onPress={() =>
+            run('facebook', async () => {
+               await signInWithFacebook();
+              })
+            }
             style={({pressed}) => [
               styles.btn,
               styles.facebookBtn,

@@ -14,7 +14,7 @@ export function ChatInputBar({
   styles: any;
   text: string;
   setText: (v: string) => void;
-  inputRef: React.RefObject<TextInput>;
+  inputRef: React.RefObject<TextInput | null>;
   sending: boolean;
   onSendText: () => void;
   onTakePhoto: () => void;

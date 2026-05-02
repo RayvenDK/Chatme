@@ -31,6 +31,7 @@ import {useRoomMessages} from './chatRoom/useRoomMessages';
 import {MessageBubble} from './chatRoom/MessageBubble';
 import {ChatInputBar} from './chatRoom/ChatInputBar';
 
+
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatRoom'>;
 
 const Wrapper: React.FC<React.PropsWithChildren> = ({children}) => {
@@ -58,7 +59,7 @@ export default function ChatRoomScreen({route, navigation}: Props) {
 
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInput | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
   useFocusEffect(
