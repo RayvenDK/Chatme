@@ -1,6 +1,6 @@
 import auth from '@react-native-firebase/auth';
-import {getFirestore} from '@react-native-firebase/firestore';
-import {doc, setDoc} from '@react-native-firebase/firestore';
+import { getFirestore } from '@react-native-firebase/firestore';
+import { doc, setDoc } from '@react-native-firebase/firestore';
 
 import {
   getMessaging,
@@ -27,23 +27,12 @@ export async function registerForPushNotificationsAndroid() {
   const token = await getToken(messaging);
   if (!token) return;
 
-  // MIDLERIDIGT for test (fjern bagefter)
-  console.log('FCM token:', token);
-
   const db = getFirestore();
   const userRef = doc(db, 'users', user.uid);
 
-  await setDoc(
-    userRef,
-    {fcmTokens: {[token]: true}},
-    {merge: true}
-  );
+  await setDoc(userRef, { fcmTokens: { [token]: true } }, { merge: true });
 
   onTokenRefresh(messaging, async newToken => {
-    await setDoc(
-      userRef,
-      {fcmTokens: {[newToken]: true}},
-      {merge: true}
-    );
+    await setDoc(userRef, { fcmTokens: { [newToken]: true } }, { merge: true });
   });
 }

@@ -34,11 +34,6 @@ Implementation:
   1. `BootSplash.hide({ fade: false })` skjuler native splash
   2. En JS overlay (`SplashOverlay`) fader ud (fx 450ms), så næste screen fader ind
 
-Acceptance:
-
-- Logged in -> Chat rooms
-- Logged out -> Login
-
 ## Data model (Firestore)
 
 ### Rooms

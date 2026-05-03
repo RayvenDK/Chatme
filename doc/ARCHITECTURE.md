@@ -34,7 +34,7 @@ Dette dokument beskriver appens nuværende struktur og de vigtigste tekniske bes
   - `roomMembers.ts` — room membership + notifikations-preference pr room
 - `src/notifications/`
   - `registerFCM.ts` — registrerer FCM token og gemmer på bruger (`users/{uid}.fcmTokens`)
-  - _(evt.) handlers til tap på notifikation -> navigation til ChatRoom_
+  - `notificationOpen.ts` handlers til tap på notifikation -> navigation til ChatRoom\_
 - `src/utils/`
   - `format.ts` — fx `formatTime`
   - `user.ts` — fx `initials`
@@ -44,7 +44,6 @@ Dette dokument beskriver appens nuværende struktur og de vigtigste tekniske bes
   - `DEBUGGING_LOG.md` — fejl/noter og løsninger
   - `ARCHITECTURE.md` — dette dokument
   - `SETUP.md` — opsætning og test
-  - `ACCEPTANCE.md` --
   - `OVERVIEW.md` --
 
 ---
