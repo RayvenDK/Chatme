@@ -109,3 +109,7 @@ Vi hoster de nødvendige sider via GitHub Pages:
 4. Firestore realtime messages
 5. Push notifications (FCM).
 6. Upload Billeder i chat rum.
+
+## konklusion:
+
+Arbejdet med denne app har været en utrolig lærerig proces. Jeg er bevidst om, at min brug af Git kunne have været mere struktureret undervejs, og det er et område, jeg er meget motiveret for at prioritere og dygtiggøre mig inden for under en eventuel praktik hos jer. Overordnet set har jeg haft en rigtig god oplevelse med at sætte mig ind i nye teknologier for at få appens funktioner på plads, og jeg er stolt af, at jeg er lykkedes med at implementere de nødvendige løsninger for at få det ønskede resultat.
