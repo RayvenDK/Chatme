@@ -111,6 +111,7 @@ Vi hoster de nødvendige sider via GitHub Pages:
 6. Upload Billeder i chat rum.
 
 Konklusion:
+
 Arbejdet med denne app har været en lærerig proces, hvor jeg har skullet sætte mig ind i flere teknologier, som jeg ikke har arbejdet med i længere tid. Undervejs har jeg truffet en række valg for at få funktionaliteten på plads, og jeg er bevidst om, at der er områder, hvor løsningen kunne være mere struktureret og gennemarbejdet – særligt i forhold til brugen af Git og den overordnede kodeopbygning.
 
 Med mere tid ville jeg have arbejdet videre med at forbedre struktur, navngivning og opdeling af ansvar i koden.
