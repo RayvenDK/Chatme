@@ -1,6 +1,6 @@
 # Chatme (React Native CLI + TypeScript + Firebase)
 
-Chatme er en lille chat-app lavet i **React Native CLI** med **TypeScript** og **Firebase Authentication**.  
+Chatme er en lille chat-app lavet i **React Native CLI** med **TypeScript** og **Firebase Authentication**.
 Projektet er lavet som en praktik-/læringsopgave med fokus på projektstruktur, læsbar kode og stabil login-flow.
 
 ## Funktioner (status)
@@ -8,7 +8,7 @@ Projektet er lavet som en praktik-/læringsopgave med fokus på projektstruktur,
 - [x] Login screen (Google Sign-In)
 - [x] Login screen (Facebook Login) _(kræver Meta setup)_
 - [x] Home screen + Sign out
-- [x] Chat rooms 
+- [x] Chat rooms
 - [x] Open chat room
 - [ ] Send/receive messages
 - [ ] Push notifications _(bonus)_
@@ -24,11 +24,11 @@ Projektet er lavet som en praktik-/læringsopgave med fokus på projektstruktur,
 
 ## Projektstruktur
 
-- `src/auth/`  
+- `src/auth/`
   Login-logik pr. provider (Google/Facebook). UI kalder bare `signInWithGoogle()` / `signInWithFacebook()`.
-- `src/navigation/`  
+- `src/navigation/`
   Navigation / stack.
-- `src/screens/`  
+- `src/screens/`
   Skærme (Login, Home, osv.)
 
 ## Kom i gang
@@ -101,9 +101,11 @@ Vi hoster de nødvendige sider via GitHub Pages:
 - **Error handling:** login-skærmen viser fejl via `Alert` og har loading state.
 - **Native look & feel:** der bruges standard RN-komponenter og native-stack navigation.
 
-## Roadmap (næste step)
+## Roadmap
 
-1. Chat rooms screen (liste over rooms)
-2. Chat room screen (åbne rum + beskeder)
-3. Firestore realtime messages
-4. Push notifications (FCM) _(bonus)_
+1. Splash Screen.
+2. Chat rooms screen (liste over rooms)
+3. Chat room screen (åbne rum + beskeder)
+4. Firestore realtime messages
+5. Push notifications (FCM).
+6. Upload Billeder i chat rum.
