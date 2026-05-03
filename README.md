@@ -116,4 +116,4 @@ Arbejdet med denne app har været en lærerig proces, hvor jeg har skullet sætt
 
 Med mere tid ville jeg have arbejdet videre med at forbedre struktur, navngivning og opdeling af ansvar i koden.
 
-Overordnet set har processen dog givet mig en god forståelse for, hvordan jeg hurtigt kan sætte mig ind i nye teknologier og få en fungerende løsning op at stå, og det er noget, jeg er motiveret for at videreudvikle i en praktik.
+Overordnet set har processen dog givet mig en god forståelse for, hvordan jeg hurtigt kan sætte mig ind i nye teknologier og få en fungerende løsning op at stå, og det er noget, jeg er motiveret for at videreudvikle fremadrettet.
