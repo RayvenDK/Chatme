@@ -110,6 +110,9 @@ Vi hoster de nødvendige sider via GitHub Pages:
 5. Push notifications (FCM).
 6. Upload Billeder i chat rum.
 
-## konklusion:
+Konklusion:
+Arbejdet med denne app har været en lærerig proces, hvor jeg har skullet sætte mig ind i flere teknologier, som jeg ikke har arbejdet med i længere tid. Undervejs har jeg truffet en række valg for at få funktionaliteten på plads, og jeg er bevidst om, at der er områder, hvor løsningen kunne være mere struktureret og gennemarbejdet – særligt i forhold til brugen af Git og den overordnede kodeopbygning.
 
-Arbejdet med denne app har været en utrolig lærerig proces. Jeg er bevidst om, at min brug af Git kunne have været mere struktureret undervejs, og det er et område, jeg er meget motiveret for at prioritere og dygtiggøre mig inden for under en eventuel praktik hos jer. Overordnet set har jeg haft en rigtig god oplevelse med at sætte mig ind i nye teknologier for at få appens funktioner på plads, og jeg er stolt af, at jeg er lykkedes med at implementere de nødvendige løsninger for at få det ønskede resultat.
+Med mere tid ville jeg have arbejdet videre med at forbedre struktur, navngivning og opdeling af ansvar i koden.
+
+Overordnet set har processen dog givet mig en god forståelse for, hvordan jeg hurtigt kan sætte mig ind i nye teknologier og få en fungerende løsning op at stå, og det er noget, jeg er motiveret for at videreudvikle i en praktik.
