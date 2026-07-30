@@ -1,0 +1,143 @@
+# iOS setup log – Chatme
+**Dato:** 29.07.2026  
+**Projekt:** Chatme (React Native CLI + Firebase)  
+**Formål:** Få projektet til at bygge og køre på iOS simulator (første iOS-opstart på Mac)
+
+---
+
+## 1) Baggrund
+Projektet var tidligere kun kørt/testet på Windows + Android.  
+Målet var at sætte iOS op på Mac og få appen i simulator via Xcode + CocoaPods.
+
+---
+
+## 2) Fejl vi mødte + løsninger
+
+### Fejl A: `xcode-select` pegede på CommandLineTools
+**Fejltekst (kort):**  
+`xcodebuild requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance`
+
+**Løsning:**
+- Sat aktiv developer dir til fuld Xcode:
+  ```bash
+  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+  sudo xcodebuild -license accept
+  sudo xcodebuild -runFirstLaunch
+  ```
+
+---
+
+### Fejl B: `pod: command not found`
+**Årsag:** CocoaPods ikke installeret / Ruby miljø problemer.
+
+**Løsning:**
+- Forsøg med `gem` gav versionskonflikter (Ruby 2.6).
+- Løsning var at få CocoaPods installeret og derefter køre pods i `ios/`.
+
+---
+
+### Fejl C: Byg kørte mod `.xcodeproj` i stedet for `.xcworkspace`
+**Symptomer:** Manglende Pods-filer (`Pods-Chatme.*.xcfilelist` osv.)
+
+**Løsning:**
+- Køre builds via workspace:
+  - `ios/Chatme.xcworkspace`
+- Clean + reinstall af pods.
+
+---
+
+### Fejl D: Podfile-konfiguration fejl
+**Symptomer:**  
+- `undefined method '[]' for true`  
+- `undefined local variable or method 'min_ios_version_supported'`
+
+**Årsag:** Forkert Podfile-indhold / manglende React Native pod-script setup.
+
+**Løsning:**
+- Podfile blev rettet til RN-kompatibel struktur.
+- Fjernet forkert brug af `config = use_modular_headers!`
+- Brug af:
+  - `config = use_native_modules!`
+  - `use_frameworks! :linkage => :static`
+  - `$RNFirebaseAsStaticFramework = true`
+- Podfile fik korrekt `require` af `react_native_pods.rb`.
+
+---
+
+### Fejl E: Firebase/gRPC build issues (`non-modular-include...`, `ReactAppDependencyProvider`)
+**Årsag:** iOS deployment target for lav + pods ikke fuldt konsistente.
+
+**Løsning:**
+- Hævet deployment target (Podfile + Xcode target).
+- Clean reinstall:
+  ```bash
+  cd ios
+  pod deintegrate
+  rm -rf Pods Podfile.lock
+  pod install --repo-update
+  cd ..
+  ```
+
+---
+
+### Fejl F: Firebase init i iOS app entrypoint
+**Årsag:** Der blev vist SwiftUI-template kode (`@main struct YourApp`), som ikke matcher RN CLI appstruktur.
+
+**Løsning:**
+- Firebase init lagt i `AppDelegate.swift` med:
+  ```swift
+  import FirebaseCore
+  FirebaseApp.configure()
+  ```
+- Beholdt RN factory/delegate setup (ikke SwiftUI `YourApp` template).
+
+---
+
+## 3) Filer ændret (i denne session)
+- `ios/Podfile` (flere rettelser)
+- `ios/Chatme/AppDelegate.swift` (Firebase init tilføjet)
+
+---
+
+## 4) Kommandoer brugt (opsummering)
+
+```bash
+# Xcode aktivering
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+sudo xcodebuild -runFirstLaunch
+
+# iOS dependencies
+cd ios
+pod deintegrate
+rm -rf Pods Podfile.lock
+pod install --repo-update
+cd ..
+
+# Build
+npx react-native run-ios
+```
+
+---
+
+## 5) Vigtige læringer
+1. React Native iOS skal bygges via `.xcworkspace` når CocoaPods bruges.  
+2. Firebase + RN på iOS kræver korrekt Podfile-konfiguration (static frameworks).  
+3. SwiftUI app-template kode må ikke blandes ind i RN CLI AppDelegate-flow.  
+4. Ved mærkelige iOS fejl: clean pods + DerivedData er ofte nødvendigt.
+
+---
+
+## 6) Næste skridt (to-do)
+- [ ] Verificér at app bygger rent på iOS simulator  
+- [ ] Login flow test  
+- [ ] Chat room åbning + realtime test  
+- [ ] Send text message test  
+- [ ] Upload image (kamera/galleri) test  
+- [ ] Push-notifikation i iOS (APNs capability + test)
+
+---
+
+## 7) Status
+**Aktuel status:** iOS setup er langt fremme; centrale build/opsætningsfejl er identificeret og rettet løbende.  
+**Næste milestone:** stabil succesfuld build + funktionel smoke test på simulator.
